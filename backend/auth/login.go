@@ -1,31 +1,36 @@
 package auth
 
 import (
+	"database/sql"
 	"errors"
 	"sistema-andres-bello/backend/db"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
-// ValidarCredenciales busca al usuario en SQLite
 func ValidarCredenciales(database *gorm.DB, nombre string, password string) (*db.Usuario, error) {
 	var usuario db.Usuario
-
-	// Buscamos por nombre de usuario
 	result := database.Where("nombre = ?", nombre).First(&usuario)
 	if result.Error != nil {
-		return nil, errors.New("Usuario no encontrado")
+		return nil, errors.New("usuario o contraseña incorrectos")
 	}
 
-	// Verificación simple (En producción deberías usar bcrypt)
-	if usuario.Password != password {
-		return nil, errors.New("Contraseña incorrecta")
+	// bcrypt compara el hash con la contraseña ingresada
+	err := bcrypt.CompareHashAndPassword([]byte(usuario.Password), []byte(password))
+	if err != nil {
+		return nil, errors.New("usuario o contraseña incorrectos")
 	}
-
 	return &usuario, nil
 }
 
-// EsDirector verifica si el usuario tiene rango administrativo alto
-func EsDirector(u *db.Usuario) bool {
-	return u.Rol == "director"
+// backend/db/usuario.go — al registrar:
+func RegistrarUsuario(database *sql.DB, u db.Usuario) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	query := `INSERT INTO usuarios (nombre, password, rol) VALUES (?, ?, ?)`
+	_, err = database.Exec(query, u.Nombre, string(hash), "docente_bibliotecario")
+	return err
 }

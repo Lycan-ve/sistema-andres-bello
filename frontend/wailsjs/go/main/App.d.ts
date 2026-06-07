@@ -3,9 +3,13 @@
 import {db} from '../models';
 import {time} from '../models';
 
+export function CambiarPasswordDocente(arg1:number,arg2:string):Promise<void>;
+
 export function CerrarSesion():Promise<void>;
 
 export function CrearDocente(arg1:string,arg2:string):Promise<void>;
+
+export function EliminarDocente(arg1:number):Promise<void>;
 
 export function FinalizarLogin():Promise<void>;
 

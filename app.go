@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -25,6 +26,18 @@ func NewApp(database *gorm.DB) *App {
 		dbConn:   database,
 		adminSvc: admin.NewService(sqlDB),
 	}
+}
+
+func (a *App) verificarRol(rolespermitidos ...string) error {
+	if a.usuarioActivo == nil {
+		return fmt.Errorf("sesión no iniciada")
+	}
+	for _, rol := range rolespermitidos {
+		if a.usuarioActivo.Rol == rol {
+			return nil
+		}
+	}
+	return fmt.Errorf("acceso denegado: Permisos Insuficientes")
 }
 
 // -----------------------------------------------------------------------------
@@ -72,13 +85,8 @@ func (a *App) ObtenerSesionActual() *db.Usuario {
 // -----------------------------------------------------------------------------
 
 func (a *App) CrearDocente(nombre string, pass string) error {
-	if a.usuarioActivo == nil {
-		return fmt.Errorf("sesión no iniciada")
-	}
-
-	// El sistema solo permite que un 'director' registre personal
-	if a.usuarioActivo.Rol != "director" {
-		return fmt.Errorf("acceso denegado: solo el director puede registrar personal")
+	if err := a.verificarRol(db.RolDirector); err != nil {
+		return err
 	}
 
 	nuevo := db.Usuario{
@@ -91,10 +99,33 @@ func (a *App) CrearDocente(nombre string, pass string) error {
 }
 
 func (a *App) ListarDocentes() ([]db.Usuario, error) {
-	if a.usuarioActivo == nil || a.usuarioActivo.Rol != "director" {
-		return nil, fmt.Errorf("acceso denegado: se requieren permisos de administrador")
+	if err := a.verificarRol(db.RolDirector); err != nil {
+		return nil, err
 	}
 	return a.adminSvc.ObtenerDocentes(a.usuarioActivo.Rol)
+}
+
+func (a *App) CambiarPasswordDocente(docenteID uint, nuevaPass string) error {
+	if err := a.verificarRol(db.RolDirector); err != nil {
+		return err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(nuevaPass), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	return a.dbConn.Model(&db.Usuario{}).
+		Where("id = ? AND rol = ?", docenteID, db.RolDocenteBibliotecario).
+		Update("password", string(hash)).Error
+}
+
+func (a *App) EliminarDocente(docenteID uint) error {
+	if err := a.verificarRol(db.RolDirector); err != nil {
+		return err
+	}
+
+	return a.dbConn.Delete(&db.Usuario{}, docenteID).Error
 }
 
 // -----------------------------------------------------------------------------
@@ -133,7 +164,6 @@ func (a *App) RegistrarLibro(titulo string, asigID uint, gradoID uint, cantidad 
 
 func (a *App) ObtenerLibros() ([]db.Libro, error) {
 	var libros []db.Libro
-	// Preload("Grado.Nivel") trae el grado y, AUTOMÁTICAMENTE, el nivel asociado a ese grado.
 	err := a.dbConn.
 		Preload("Asignatura").
 		Preload("Grado").
