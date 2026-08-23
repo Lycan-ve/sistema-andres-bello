@@ -21,10 +21,11 @@ type App struct {
 }
 
 func NewApp(database *gorm.DB) *App {
-	sqlDB, _ := database.DB()
+	// CORRECCIÓN: Ya no necesitamos extraer sqlDB. Pasamos 'database' (*gorm.DB)
+	// directamente al nuevo constructor del servicio de administración.
 	return &App{
 		dbConn:   database,
-		adminSvc: admin.NewService(sqlDB),
+		adminSvc: admin.NewService(database),
 	}
 }
 
@@ -89,10 +90,16 @@ func (a *App) CrearDocente(nombre string, pass string) error {
 		return err
 	}
 
+	// CORRECCIÓN: Encriptamos la contraseña antes de mandarla al servicio
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("error al procesar la contraseña: %w", err)
+	}
+
 	nuevo := db.Usuario{
 		Nombre:   nombre,
-		Password: pass,
-		Rol:      "docente-bibliotecario",
+		Password: string(hash), // Guardamos el hash, no el texto plano
+		Rol:      db.RolDocenteBibliotecario,
 	}
 
 	return a.adminSvc.RegistrarDocente(a.usuarioActivo.Rol, nuevo)
@@ -105,7 +112,7 @@ func (a *App) ListarDocentes() ([]db.Usuario, error) {
 	return a.adminSvc.ObtenerDocentes(a.usuarioActivo.Rol)
 }
 
-func (a *App) CambiarPasswordDocente(docenteID uint, nuevaPass string) error {
+func (a *App) CambiarPasswordDocente(Id uint, nuevaPass string) error {
 	if err := a.verificarRol(db.RolDirector); err != nil {
 		return err
 	}
@@ -116,16 +123,17 @@ func (a *App) CambiarPasswordDocente(docenteID uint, nuevaPass string) error {
 	}
 
 	return a.dbConn.Model(&db.Usuario{}).
-		Where("id = ? AND rol = ?", docenteID, db.RolDocenteBibliotecario).
+		Where("id = ? AND rol = ?", Id, db.RolDocenteBibliotecario).
 		Update("password", string(hash)).Error
 }
 
-func (a *App) EliminarDocente(docenteID uint) error {
+func (a *App) EliminarDocente(Id uint) error {
 	if err := a.verificarRol(db.RolDirector); err != nil {
 		return err
 	}
 
-	return a.dbConn.Delete(&db.Usuario{}, docenteID).Error
+	// AL AÑADIR .Unscoped(), GORM ejecutará un "DELETE FROM" real en lugar de un "UPDATE"
+	return a.dbConn.Unscoped().Delete(&db.Usuario{}, Id).Error
 }
 
 // -----------------------------------------------------------------------------

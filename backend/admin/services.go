@@ -1,16 +1,18 @@
 package admin
 
 import (
-	"database/sql"
 	"errors"
 	"sistema-andres-bello/backend/db"
+
+	"gorm.io/gorm"
 )
 
 type Service struct {
-	database *sql.DB
+	// CORRECCIÓN: Actualizado a *gorm.DB para mantener consistencia con el resto del backend
+	database *gorm.DB
 }
 
-func NewService(dbConn *sql.DB) *Service {
+func NewService(dbConn *gorm.DB) *Service {
 	return &Service{
 		database: dbConn,
 	}
@@ -27,6 +29,7 @@ func (s *Service) RegistrarDocente(rolAdmin string, nuevo db.Usuario) error {
 	nuevo.Rol = "docente_bibliotecario"
 
 	// 3. Insertamos usando la función que definimos en db/usuario.go
+	// Ahora 's.database' es *gorm.DB, por lo que encaja perfectamente
 	return db.RegistrarUsuario(s.database, nuevo)
 }
 
@@ -36,22 +39,19 @@ func (s *Service) ObtenerDocentes(rolAdmin string) ([]db.Usuario, error) {
 		return nil, errors.New("acceso denegado: permisos insuficientes")
 	}
 
-	// Buscamos específicamente el rol 'docente_bibliotecario'
-	query := `SELECT id, nombre, rol FROM usuarios WHERE rol = 'docente_bibliotecario'`
-	rows, err := s.database.Query(query)
+	var docentes []db.Usuario
+
+	// CORRECCIÓN: Usamos GORM en lugar de SQL crudo.
+	// Esto garantiza que el filtro "deleted_at IS NULL" se aplique automáticamente.
+	// Usamos Select para traer solo los campos necesarios, optimizando memoria al igual que en tu SQL original.
+	err := s.database.
+		Select("id", "nombre", "rol").
+		Where("rol = ?", "docente_bibliotecario").
+		Find(&docentes).Error
+
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var docentes []db.Usuario
-	for rows.Next() {
-		var u db.Usuario
-		// Importante: El orden en Scan debe ser igual al SELECT (id, nombre, rol)
-		if err := rows.Scan(&u.Id, &u.Nombre, &u.Rol); err != nil {
-			return nil, err
-		}
-		docentes = append(docentes, u)
-	}
 	return docentes, nil
 }

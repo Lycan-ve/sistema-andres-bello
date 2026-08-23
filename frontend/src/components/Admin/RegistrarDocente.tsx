@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CrearDocente, ListarDocentes } from "../../../wailsjs/go/main/App";
+import { CambiarPasswordDocente, CrearDocente, EliminarDocente, ListarDocentes } from "../../../wailsjs/go/main/App";
 import { db } from "../../../wailsjs/go/models";
 import { 
   UserPlus, 
@@ -9,7 +9,8 @@ import {
   ShieldCheck, 
   Users2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 
 export function RegistroDocente({ rolAdmin }: { rolAdmin: string }) {
@@ -36,31 +37,31 @@ export function RegistroDocente({ rolAdmin }: { rolAdmin: string }) {
 
   useEffect(() => { cargar(); }, []);
 
-const Guardar = async () => {
-  if (!nombre || !pass) return alert("Por favor, completa todos los campos");
-  
-  setCargando(true);
-  try {
-    // LLAMADA CORREGIDA: Solo pasamos nombre y pass
-    await CrearDocente(nombre, pass);
+  const Guardar = async () => {
+    if (!nombre || !pass) return alert("Por favor, completa todos los campos");
     
-    setNombre(''); 
-    setPass('');
-    await cargar(); // Recarga la tabla automáticamente
-    alert("¡Bibliotecario registrado con éxito!");
-    
-  } catch (e: any) { 
-    console.error("Error en el registro:", e);
-    // Manejo de errores basado en el mensaje que enviamos desde Go
-    if (e.includes("denegado") || e.includes("permisos")) {
-      alert("Error: Solo el Director tiene permiso para crear nuevos usuarios.");
-    } else {
-      alert(`No se pudo registrar: ${e}`);
+    setCargando(true);
+    try {
+      // LLAMADA CORREGIDA: Solo pasamos nombre y pass
+      await CrearDocente(nombre, pass);
+      
+      setNombre(''); 
+      setPass('');
+      await cargar(); // Recarga la tabla automáticamente
+      alert("¡Bibliotecario registrado con éxito!");
+      
+    } catch (e: any) { 
+      console.error("Error en el registro:", e);
+      // Manejo de errores basado en el mensaje que enviamos desde Go
+      if (e.includes("denegado") || e.includes("permisos")) {
+        alert("Error: Solo el Director tiene permiso para crear nuevos usuarios.");
+      } else {
+        alert(`No se pudo registrar: ${e}`);
+      }
+    } finally {
+      setCargando(false);
     }
-  } finally {
-    setCargando(false);
-  }
-};
+  };
 
   return (
     <div className="space-y-6">
@@ -139,11 +140,12 @@ const Guardar = async () => {
               <tr>
                 <th className="p-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Nombre del Usuario</th>
                 <th className="p-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Rol de Sistema</th>
+                <th className="p-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {docentes.map((d) => (
-                <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={d.ID} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-4 flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold border border-slate-200">
                       {d.nombre?.charAt(0).toUpperCase() || '?'}
@@ -159,6 +161,52 @@ const Guardar = async () => {
                       <ShieldCheck size={12} />
                       {d.rol}
                     </span>
+                  </td>
+                  <td className="p-4 flex gap-2">
+                    {/* BOTÓN CAMBIAR CONTRASEÑA CORREGIDO */}
+                    <button 
+                      onClick={async () => {
+                        const nuevaPass = prompt("Ingrese la nueva contraseña:");
+                        if (nuevaPass) {
+                          try {
+                            setCargando(true);
+                            await CambiarPasswordDocente(d.ID, nuevaPass);
+                            alert("Contraseña actualizada con éxito");
+                          } catch (e: any) {
+                            console.error("Error al cambiar contraseña:", e);
+                            alert(`Error: ${e}`);
+                          } finally {
+                            setCargando(false);
+                          }
+                        }
+                      }} 
+                      title="Cambiar contraseña"
+                      className="text-slate-400 hover:text-cyan-600 transition-colors"
+                    >
+                      <KeyRound size={18} />
+                    </button>
+
+                    {/* BOTÓN ELIMINAR CORREGIDO */}
+                    <button 
+                      onClick={async () => {
+                        if (window.confirm(`¿Estás seguro de que deseas eliminar al usuario ${d.nombre}?`)) {
+                          try {
+                            setCargando(true);
+                            await EliminarDocente(d.ID);
+                            await cargar(); // Recarga la tabla al terminar
+                            alert("Usuario eliminado correctamente.");
+                          } catch (e: any) {
+                            console.error("Error al eliminar:", e);
+                            alert(`Error: ${e}`);
+                            setCargando(false); // Liberar loading si falla
+                          }
+                        }
+                      }} 
+                      className="text-red-400 hover:text-red-600 transition-colors" 
+                      title="Eliminar"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </td>
                 </tr>
               ))}

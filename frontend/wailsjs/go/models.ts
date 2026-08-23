@@ -285,10 +285,10 @@ export namespace db {
 	    UpdatedAt: time.Time;
 	    // Go type: gorm
 	    DeletedAt: any;
-	    id: number;
 	    nombre: string;
 	    password?: string;
 	    rol: string;
+	    nueva_pass?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Usuario(source);
@@ -300,10 +300,10 @@ export namespace db {
 	        this.CreatedAt = this.convertValues(source["CreatedAt"], time.Time);
 	        this.UpdatedAt = this.convertValues(source["UpdatedAt"], time.Time);
 	        this.DeletedAt = this.convertValues(source["DeletedAt"], null);
-	        this.id = source["id"];
 	        this.nombre = source["nombre"];
 	        this.password = source["password"];
 	        this.rol = source["rol"];
+	        this.nueva_pass = source["nueva_pass"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

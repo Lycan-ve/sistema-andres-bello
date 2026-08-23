@@ -21,12 +21,11 @@ type NivelAcademico struct {
 
 type Grado struct {
 	gorm.Model
-	Id      int    `json:"id" gorm:"primaryKey"`
-	Nombre  string `json:"nombre"`
-	Seccion string `json:"seccion"`
-	NivelID uint   `json:"nivel_id"`
-	// ESTA ES LA LÍNEA QUE FALTA O ESTÁ MAL:
-	Nivel NivelAcademico `json:"nivel" gorm:"foreignKey:NivelID"`
+	Id      int            `json:"id" gorm:"primaryKey"`
+	Nombre  string         `json:"nombre"`
+	Seccion string         `json:"seccion"`
+	NivelID uint           `json:"nivel_id"`
+	Nivel   NivelAcademico `json:"nivel" gorm:"foreignKey:NivelID"`
 }
 
 type Libro struct {
