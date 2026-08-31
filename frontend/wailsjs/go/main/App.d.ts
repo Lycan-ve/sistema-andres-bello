@@ -7,7 +7,11 @@ export function CambiarPasswordDocente(arg1:number,arg2:string):Promise<void>;
 
 export function CerrarSesion():Promise<void>;
 
+export function CheakAdminExists():Promise<boolean>;
+
 export function CrearDocente(arg1:string,arg2:string):Promise<void>;
+
+export function CreatefirstAdmin(arg1:string,arg2:string):Promise<void>;
 
 export function EliminarDocente(arg1:number):Promise<void>;
 

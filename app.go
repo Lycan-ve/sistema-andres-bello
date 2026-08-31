@@ -29,6 +29,14 @@ func NewApp(database *gorm.DB) *App {
 	}
 }
 
+func (a *App) CheakAdminExists() (bool, error) {
+	return admin.CheakAdmin(a.dbConn)
+}
+
+func (a *App) CreatefirstAdmin(nombre, password string) error {
+	return admin.CreateAdmin(a.dbConn, nombre, password)
+}
+
 func (a *App) verificarRol(rolespermitidos ...string) error {
 	if a.usuarioActivo == nil {
 		return fmt.Errorf("sesión no iniciada")

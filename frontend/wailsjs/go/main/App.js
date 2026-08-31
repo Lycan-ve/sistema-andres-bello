@@ -10,8 +10,16 @@ export function CerrarSesion() {
   return window['go']['main']['App']['CerrarSesion']();
 }
 
+export function CheakAdminExists() {
+  return window['go']['main']['App']['CheakAdminExists']();
+}
+
 export function CrearDocente(arg1, arg2) {
   return window['go']['main']['App']['CrearDocente'](arg1, arg2);
+}
+
+export function CreatefirstAdmin(arg1, arg2) {
+  return window['go']['main']['App']['CreatefirstAdmin'](arg1, arg2);
 }
 
 export function EliminarDocente(arg1) {
