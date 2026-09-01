@@ -41,6 +41,24 @@ export namespace db {
 		    return a;
 		}
 	}
+	export class EstadisticasDashboard {
+	    totalPrestamos: number;
+	    activos: number;
+	    morosos: number;
+	    fondoEditorial: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new EstadisticasDashboard(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.totalPrestamos = source["totalPrestamos"];
+	        this.activos = source["activos"];
+	        this.morosos = source["morosos"];
+	        this.fondoEditorial = source["fondoEditorial"];
+	    }
+	}
 	export class NivelAcademico {
 	    ID: number;
 	    CreatedAt: time.Time;
@@ -180,6 +198,46 @@ export namespace db {
 		    return a;
 		}
 	}
+	export class Movimiento {
+	    id: number;
+	    tipoOperacion: string;
+	    usuario: string;
+	    material: string;
+	    estado: string;
+	    fecha: time.Time;
+	
+	    static createFrom(source: any = {}) {
+	        return new Movimiento(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.tipoOperacion = source["tipoOperacion"];
+	        this.usuario = source["usuario"];
+	        this.material = source["material"];
+	        this.estado = source["estado"];
+	        this.fecha = this.convertValues(source["fecha"], time.Time);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	export class Solicitante {
 	    ID: number;
@@ -194,6 +252,8 @@ export namespace db {
 	    tipo: string;
 	    grado_id: number;
 	    grado: Grado;
+	    sancionado: boolean;
+	    motivo_sancion: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Solicitante(source);
@@ -212,6 +272,8 @@ export namespace db {
 	        this.tipo = source["tipo"];
 	        this.grado_id = source["grado_id"];
 	        this.grado = this.convertValues(source["grado"], Grado);
+	        this.sancionado = source["sancionado"];
+	        this.motivo_sancion = source["motivo_sancion"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -6,9 +6,12 @@ import (
 	"sistema-andres-bello/backend/admin"
 	"sistema-andres-bello/backend/auth"
 	"sistema-andres-bello/backend/db"
+	"sistema-andres-bello/backend/reportes"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/xuri/excelize/v2"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -47,6 +50,118 @@ func (a *App) verificarRol(rolespermitidos ...string) error {
 		}
 	}
 	return fmt.Errorf("acceso denegado: Permisos Insuficientes")
+}
+
+// SelectExcelFile abre un explorador de archivos nativo para seleccionar un Excel
+func (a *App) SelectExcelFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Seleccionar archivo Excel de libros",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "Archivos Excel",
+				Pattern:     "*.xlsx;*.xls",
+			},
+		},
+	})
+}
+
+func (a *App) ImportarLibrosExcel(filepath string) error {
+	f, err := excelize.OpenFile(filepath)
+	if err != nil {
+		return fmt.Errorf("error al abrir el archivo Excel: %w", err)
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows(f.GetSheetName(0))
+	if err != nil {
+		return fmt.Errorf("error al leer las filas: %v", err)
+	}
+
+	if len(rows) <= 1 {
+		return fmt.Errorf("el archivo excel está vacío o solo contiene la cabecera")
+	}
+
+	tx := a.dbConn.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Sincronizar las secuencias de PostgreSQL para evitar conflictos de llave primaria duplicada
+	tx.Exec("SELECT setval(pg_get_serial_sequence('asignaturas', 'id'), COALESCE((SELECT MAX(id) FROM asignaturas), 1), true)")
+	tx.Exec("SELECT setval(pg_get_serial_sequence('grados', 'id'), COALESCE((SELECT MAX(id) FROM grados), 1), true)")
+	tx.Exec("SELECT setval(pg_get_serial_sequence('nivel_academicos', 'id'), COALESCE((SELECT MAX(id) FROM nivel_academicos), 1), true)")
+
+	var errores []string
+
+	for i, row := range rows {
+		if i == 0 {
+			continue // Omitir cabecera
+		}
+		if len(row) < 5 {
+			errores = append(errores, fmt.Sprintf("Fila %d: Faltan columnas obligatorias (Título, Asignatura, Grado, Nivel, Cantidad)", i+1))
+			continue
+		}
+
+		titulo := strings.TrimSpace(row[0])
+		nombreAsignatura := strings.TrimSpace(row[1])
+		nombreGrado := strings.TrimSpace(row[2])
+		nombreNivel := strings.TrimSpace(row[3])
+
+		var cantidad int
+		if _, err := fmt.Sscanf(row[4], "%d", &cantidad); err != nil || cantidad < 0 {
+			errores = append(errores, fmt.Sprintf("Fila %d (%s): Cantidad inválida '%s'", i+1, titulo, row[4]))
+			continue
+		}
+
+		// 1. Buscar o crear la Asignatura usando FirstOrCreate
+		var asignatura db.Asignatura
+		if err := tx.Where("LOWER(nombre) = ?", strings.ToLower(nombreAsignatura)).
+			FirstOrCreate(&asignatura, db.Asignatura{Nombre: nombreAsignatura}).Error; err != nil {
+			errores = append(errores, fmt.Sprintf("Fila %d (%s): Error al procesar asignatura '%s' -> %v", i+1, titulo, nombreAsignatura, err))
+			continue
+		}
+
+		// 2. Buscar o crear el Nivel Académico usando FirstOrCreate
+		var nivel db.NivelAcademico
+		if err := tx.Where("LOWER(nombre) = ?", strings.ToLower(nombreNivel)).
+			FirstOrCreate(&nivel, db.NivelAcademico{Nombre: nombreNivel}).Error; err != nil {
+			errores = append(errores, fmt.Sprintf("Fila %d (%s): Error al procesar nivel '%s' -> %v", i+1, titulo, nombreNivel, err))
+			continue
+		}
+
+		// 3. Buscar o crear el Grado vinculado a su Nivel usando FirstOrCreate
+		var grado db.Grado
+		if err := tx.Where("LOWER(nombre) = ? AND nivel_id = ?", strings.ToLower(nombreGrado), nivel.Id).
+			FirstOrCreate(&grado, db.Grado{
+				Nombre:  nombreGrado,
+				NivelID: uint(nivel.Id),
+			}).Error; err != nil {
+			errores = append(errores, fmt.Sprintf("Fila %d (%s): Error al procesar grado '%s' -> %v", i+1, titulo, nombreGrado, err))
+			continue
+		}
+
+		// 4. Crear el libro relacionando los IDs correspondientes
+		nuevoLibro := db.Libro{
+			Titulo:       titulo,
+			AsignaturaID: uint(asignatura.Id),
+			GradoID:      uint(grado.Id),
+			Cantidad:     cantidad,
+		}
+
+		if err := tx.Create(&nuevoLibro).Error; err != nil {
+			errores = append(errores, fmt.Sprintf("Fila %d (%s): Error al guardar en BD -> %v", i+1, titulo, err))
+			continue
+		}
+	}
+
+	if len(errores) > 0 {
+		tx.Rollback()
+		return fmt.Errorf("la importación falló con los siguientes errores:\n- %s", strings.Join(errores, "\n- "))
+	}
+
+	return tx.Commit().Error
 }
 
 // -----------------------------------------------------------------------------
@@ -234,4 +349,61 @@ func (a *App) ObtenerPrestamos() ([]db.Prestamo, error) {
 		Where("devuelto = ?", false).
 		Find(&prestamos).Error
 	return prestamos, err
+}
+
+// -----------------------------------------------------------------------------
+// GESTIÓN DE SANCIONES Y EXPEDIENTES (Directorio Escolar)
+// -----------------------------------------------------------------------------
+
+// SancionarEstudiante permite bloquear o desbloquear a un solicitante (alumno/docente)
+func (a *App) SancionarEstudiante(solicitanteID uint, sancionar bool, motivo string) error {
+	if a.usuarioActivo == nil {
+		return fmt.Errorf("sesión no iniciada")
+	}
+
+	updates := map[string]interface{}{
+		"sancionado":     sancionar,
+		"motivo_sancion": motivo,
+	}
+	if !sancionar {
+		updates["motivo_sancion"] = ""
+	}
+
+	return a.dbConn.Model(&db.Solicitante{}).Where("id = ?", solicitanteID).Updates(updates).Error
+}
+
+// ObtenerExpedienteEstudiante recupera todo el historial de préstamos de un alumno específico
+func (a *App) ObtenerExpedienteEstudiante(solicitanteID uint) ([]db.Prestamo, error) {
+	if a.usuarioActivo == nil {
+		return nil, fmt.Errorf("sesión no iniciada")
+	}
+
+	var prestamos []db.Prestamo
+	err := a.dbConn.
+		Preload("Libro").
+		Preload("Libro.Asignatura").
+		Where("solicitante_id = ?", solicitanteID).
+		Order("created_at desc").
+		Find(&prestamos).Error
+
+	return prestamos, err
+}
+
+// -----------------------------------------------------------------------------
+// GESTIÓN DE REPORTES Y ESTADÍSTICAS
+// -----------------------------------------------------------------------------
+
+func (a *App) ObtenerEstadisticasReporte() (db.EstadisticasDashboard, error) {
+	// Opcional: Validar que exista una sesión activa
+	if a.usuarioActivo == nil {
+		return db.EstadisticasDashboard{}, fmt.Errorf("sesión no iniciada")
+	}
+	return reportes.ObtenerEstadisticas(a.dbConn), nil
+}
+
+func (a *App) ObtenerHistorialMovimientos() ([]db.Movimiento, error) {
+	if a.usuarioActivo == nil {
+		return nil, fmt.Errorf("sesión no iniciada")
+	}
+	return reportes.ObtenerMovimientosRecientes(a.dbConn)
 }

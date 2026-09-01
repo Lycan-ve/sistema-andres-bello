@@ -11,7 +11,7 @@ import (
 
 func ValidarCredenciales(database *gorm.DB, nombre string, password string) (*db.Usuario, error) {
 	var usuario db.Usuario
-	result := database.Where("nombre = ?", nombre).First(&usuario)
+	result := database.Where("LOWER(nombre) = LOWER(?)", nombre).First(&usuario)
 	if result.Error != nil {
 		return nil, errors.New("usuario o contraseña incorrectos")
 	}

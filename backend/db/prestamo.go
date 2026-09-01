@@ -10,13 +10,15 @@ import (
 // Solicitante representa a la persona que retira el material (Alumno o Docente)
 type Solicitante struct {
 	gorm.Model
-	ID       uint    `gorm:"primaryKey" json:"id"`
-	Cedula   *string `gorm:"unique;default:null" json:"cedula"` // Puede ser vacía para alumnos pequeños
-	Nombre   string  `json:"nombre"`
-	Apellido string  `json:"apellido"`
-	Tipo     string  `json:"tipo"`     // "alumno" o "docente"
-	GradoID  uint    `json:"grado_id"` // Grado/Sección al que pertenece o donde dará la clase
-	Grado    Grado   `json:"grado" gorm:"foreignKey:GradoID"`
+	ID            uint    `gorm:"primaryKey" json:"id"`
+	Cedula        *string `gorm:"unique;default:null" json:"cedula"`
+	Nombre        string  `json:"nombre"`
+	Apellido      string  `json:"apellido"`
+	Tipo          string  `json:"tipo"` // "alumno" o "docente"
+	GradoID       uint    `json:"grado_id"`
+	Grado         Grado   `json:"grado" gorm:"foreignKey:GradoID"`
+	Sancionado    bool    `json:"sancionado" gorm:"default:false"` // Bloquea nuevos préstamos
+	MotivoSancion string  `json:"motivo_sancion" gorm:"size:255"`  // Razón del bloqueo (ej: material dañado)
 }
 
 // Registro del Préstamo
@@ -49,6 +51,9 @@ func RegistrarPrestamo(database *gorm.DB, sol Solicitante, libroID uint, cantida
 
 			// Si no tiene cédula, nos aseguramos de que se guarde como NULL en la BD
 			sol.Cedula = nil
+		}
+		if solicitanteExistente.ID != 0 && solicitanteExistente.Sancionado {
+			return fmt.Errorf("solicitante sancionado: %s", solicitanteExistente.MotivoSancion)
 		}
 
 		// 2. Gestión del Solicitante
@@ -110,7 +115,8 @@ func GetPrestamosActivos(database *gorm.DB) ([]Prestamo, error) {
 func DevolverLibro(database *gorm.DB, prestamoID uint) error {
 	return database.Transaction(func(tx *gorm.DB) error {
 		var p Prestamo
-		if err := tx.First(&p, prestamoID).Error; err != nil {
+		// Precargamos el solicitante y el libro para la auditoría
+		if err := tx.Preload("Solicitante").Preload("Libro").First(&p, prestamoID).Error; err != nil {
 			return err
 		}
 
@@ -124,7 +130,20 @@ func DevolverLibro(database *gorm.DB, prestamoID uint) error {
 		}
 
 		// 2. Reponer stock exacto al libro
-		return tx.Model(&Libro{}).Where("id = ?", p.LibroID).
-			UpdateColumn("cantidad", gorm.Expr("cantidad + ?", p.Cantidad)).Error
+		if err := tx.Model(&Libro{}).Where("id = ?", p.LibroID).
+			UpdateColumn("cantidad", gorm.Expr("cantidad + ?", p.Cantidad)).Error; err != nil {
+			return err
+		}
+
+		// 3. Registrar el evento en la tabla de Movimientos (Auditoría)
+		nombreCompleto := fmt.Sprintf("%s %s", p.Solicitante.Nombre, p.Solicitante.Apellido)
+		nuevoMovimiento := Movimiento{
+			TipoOperacion: "DEVOLUCIÓN",
+			Usuario:       nombreCompleto,
+			Material:      p.Libro.Titulo,
+			Estado:        "COMPLETADO",
+		}
+
+		return tx.Create(&nuevoMovimiento).Error
 	})
 }

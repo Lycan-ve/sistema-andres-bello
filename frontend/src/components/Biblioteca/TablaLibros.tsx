@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { ObtenerLibros, ObtenerNiveles } from "../../../wailsjs/go/main/App"; 
 import { db } from "../../../wailsjs/go/models";
 import { AlertCircle, CheckCircle2, Search, Plus, BookOpen, Layers, RefreshCw } from 'lucide-react';
+import { BotonImportarExcel } from './ImportarExcel';
 
 interface Props {
     rol: string;
@@ -66,6 +67,9 @@ export function TablaLibros({ rol, onOpenModal }: Props) {
                             onChange={(e) => setBusqueda(e.target.value)}
                         />
                     </div>
+
+                    {/* BOTÓN DE IMPORTAR EXCEL COMO COMPONENTE */}
+                    <BotonImportarExcel onSuccess={cargarDatos} />
                     
                     <button
                         onClick={cargarDatos}
@@ -87,10 +91,10 @@ export function TablaLibros({ rol, onOpenModal }: Props) {
 
             {/* CONTENEDOR DE TABLA */}
             <div className="bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 overflow-hidden transition-all">
-                <div className="overflow-x-auto">
+                <div className="max-h-[65vh] overflow-y-auto overflow-x-auto">
                     <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100">
+                        <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-md z-10 border-b border-slate-100">
+                            <tr className="border-b border-slate-100">
                                 <th className="p-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Información del Recurso</th>
                                 <th className="p-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Clasificación Escolar</th>
                                 <th className="p-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Disponibilidad</th>
@@ -163,8 +167,9 @@ export function TablaLibros({ rol, onOpenModal }: Props) {
                                     </td>
                                     <td className="p-8">
                                         <div className="flex flex-col items-center group/stock">
+                                            {/* SOLUCIÓN CANTIDAD: Se muestra la cantidad real directamente sin padStart */}
                                             <div className={`text-xl font-black font-mono leading-none ${libro.cantidad <= 3 ? 'text-rose-600 animate-pulse' : 'text-slate-800'}`}>
-                                                {libro.cantidad.toString().padStart(2, '0')}
+                                                {libro.cantidad}
                                             </div>
                                             <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-1">Unidades</span>
                                         </div>
@@ -174,6 +179,7 @@ export function TablaLibros({ rol, onOpenModal }: Props) {
                         </tbody>
                     </table>
                 </div>
+            </div>
                 
                 {!loading && librosFiltrados.length === 0 && (
                     <div className="p-32 text-center bg-slate-50/20">
@@ -184,14 +190,13 @@ export function TablaLibros({ rol, onOpenModal }: Props) {
                         <p className="text-slate-400 font-bold uppercase text-[9px] tracking-[0.3em]">Intenta con otros términos de búsqueda</p>
                     </div>
                 )}
+
+                {/* FOOTER DE LA TABLA */}
+                <div className="flex justify-between items-center px-6 py-2">
+                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest italic">
+                        Mostrando {librosFiltrados.length} de {libros.length} registros totales
+                    </p>
+                </div>
             </div>
-            
-            {/* FOOTER DE LA TABLA */}
-            <div className="flex justify-between items-center px-6 py-2">
-                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest italic">
-                    Mostrando {librosFiltrados.length} de {libros.length} registros totales
-                </p>
-            </div>
-        </div>
     );
 }

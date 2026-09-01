@@ -24,8 +24,8 @@ type Usuario struct {
 func LoginUsuarioGorm(db *gorm.DB, user string, pass string) (*Usuario, error) {
 	var u Usuario
 
-	// Paso 1: Buscamos al usuario SÓLO por su nombre
-	err := db.Where("nombre = ?", user).First(&u).Error
+	// Paso 1: Buscamos al usuario sin importar mayúsculas o minúsculas (LOWER)
+	err := db.Where("LOWER(nombre) = LOWER(?)", user).First(&u).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Mensaje genérico por seguridad (para no dar pistas si el usuario existe o no)

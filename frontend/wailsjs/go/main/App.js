@@ -34,6 +34,10 @@ export function FinalizarPrestamo(arg1) {
   return window['go']['main']['App']['FinalizarPrestamo'](arg1);
 }
 
+export function ImportarLibrosExcel(arg1) {
+  return window['go']['main']['App']['ImportarLibrosExcel'](arg1);
+}
+
 export function ListarDocentes() {
   return window['go']['main']['App']['ListarDocentes']();
 }
@@ -50,8 +54,20 @@ export function ObtenerAsignaturas() {
   return window['go']['main']['App']['ObtenerAsignaturas']();
 }
 
+export function ObtenerEstadisticasReporte() {
+  return window['go']['main']['App']['ObtenerEstadisticasReporte']();
+}
+
+export function ObtenerExpedienteEstudiante(arg1) {
+  return window['go']['main']['App']['ObtenerExpedienteEstudiante'](arg1);
+}
+
 export function ObtenerGradosPorNivel(arg1) {
   return window['go']['main']['App']['ObtenerGradosPorNivel'](arg1);
+}
+
+export function ObtenerHistorialMovimientos() {
+  return window['go']['main']['App']['ObtenerHistorialMovimientos']();
 }
 
 export function ObtenerLibros() {
@@ -80,4 +96,12 @@ export function RegistrarLibro(arg1, arg2, arg3, arg4) {
 
 export function RegistrarPrestamo(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['RegistrarPrestamo'](arg1, arg2, arg3, arg4);
+}
+
+export function SancionarEstudiante(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SancionarEstudiante'](arg1, arg2, arg3);
+}
+
+export function SelectExcelFile() {
+  return window['go']['main']['App']['SelectExcelFile']();
 }

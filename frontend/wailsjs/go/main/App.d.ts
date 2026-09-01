@@ -19,6 +19,8 @@ export function FinalizarLogin():Promise<void>;
 
 export function FinalizarPrestamo(arg1:number):Promise<void>;
 
+export function ImportarLibrosExcel(arg1:string):Promise<void>;
+
 export function ListarDocentes():Promise<Array<db.Usuario>>;
 
 export function ListarEstudiantes():Promise<Array<db.Solicitante>>;
@@ -27,7 +29,13 @@ export function Login(arg1:string,arg2:string):Promise<db.Usuario>;
 
 export function ObtenerAsignaturas():Promise<Array<db.Asignatura>>;
 
+export function ObtenerEstadisticasReporte():Promise<db.EstadisticasDashboard>;
+
+export function ObtenerExpedienteEstudiante(arg1:number):Promise<Array<db.Prestamo>>;
+
 export function ObtenerGradosPorNivel(arg1:number):Promise<Array<db.Grado>>;
+
+export function ObtenerHistorialMovimientos():Promise<Array<db.Movimiento>>;
 
 export function ObtenerLibros():Promise<Array<db.Libro>>;
 
@@ -42,3 +50,7 @@ export function ObtenerSesionActual():Promise<db.Usuario>;
 export function RegistrarLibro(arg1:string,arg2:number,arg3:number,arg4:number):Promise<void>;
 
 export function RegistrarPrestamo(arg1:db.Solicitante,arg2:number,arg3:number,arg4:time.Time):Promise<void>;
+
+export function SancionarEstudiante(arg1:number,arg2:boolean,arg3:string):Promise<void>;
+
+export function SelectExcelFile():Promise<string>;

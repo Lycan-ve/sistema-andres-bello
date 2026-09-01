@@ -22,6 +22,7 @@ func InitDB() *gorm.DB {
 		&Solicitante{},
 		&Prestamo{},
 		&Grado{},
+		&Movimiento{},
 	)
 	if err != nil {
 		log.Fatal("Fallo en la migración de las tablas:", err)

@@ -21,7 +21,9 @@ export function Login({ onLoginSuccess }: LoginProps) {
     if (!nombre || !password) return;
     setLoading(true);
     try {
-      const res = await LoginAction(nombre, password);
+      // Normalizamos el nombre de usuario a minúsculas y sin espacios sobrantes
+      const usuarioNormalizado = nombre.trim().toLowerCase();
+      const res = await LoginAction(usuarioNormalizado, password);
       if (res) onLoginSuccess(res);
     } catch (err) {
       alert("Credenciales incorrectas");

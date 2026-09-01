@@ -3,6 +3,9 @@ import { db } from "../../wailsjs/go/models";
 import { RegistroDocente } from "./Admin/RegistrarDocente";
 import { TablaLibros } from './Biblioteca/TablaLibros';
 import { RegistrarLibroModal } from './Biblioteca/RegistrarLibros';
+import { TablaPrestamos } from './Prestamo/TablaPrestamo';
+import { Reportes } from './Reportes/Movimientos'; // <-- 1. IMPORTAMOS EL MÓDULO DE REPORTES
+
 // Importamos los iconos necesarios
 import { 
   Library, 
@@ -10,9 +13,9 @@ import {
   LogOut, 
   UserCircle, 
   GraduationCap, 
-  Book
+  Book,
+  BarChart3 // <-- 2. ICONO PARA REPORTES
 } from 'lucide-react';
-import { TablaPrestamos } from './Prestamo/TablaPrestamo';
 
 interface Props {
   usuario: db.Usuario;
@@ -23,8 +26,8 @@ export function Dashboard({ usuario, onLogout }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const esDirector = usuario.rol === "director";
   
-  // 1. Actualizamos el tipo del estado vista
-  const [vista, setVista] = useState<'inventario' | 'usuarios' | 'prestamo'>('inventario');
+  // 3. AÑADIMOS 'reportes' A LOS ESTADOS VÁLIDOS DE LA VISTA
+  const [vista, setVista] = useState<'inventario' | 'usuarios' | 'prestamo' | 'reportes'>('inventario');
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleBookAdded = () => {
@@ -72,7 +75,22 @@ export function Dashboard({ usuario, onLogout }: Props) {
               <Book size={18} className={`${vista === 'prestamo' ? 'animate-pulse' : ''}`} />
               Préstamos
             </button>
+
+            {/* Botón Reportes (Disponible para todos o restringido si lo deseas) */}
+            <button
+              onClick={() => setVista('reportes')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 text-sm font-bold shadow-sm 
+                hover:scale-105 active:scale-95 ${
+                vista === 'reportes' 
+                ? 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200' 
+                : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              <BarChart3 size={18} className={`${vista === 'reportes' ? 'animate-pulse' : ''}`} />
+              Reportes
+            </button>
             
+            {/* Botón Docentes (Solo Director) */}
             {esDirector && (
               <button 
                 onClick={() => setVista('usuarios')}
@@ -123,6 +141,10 @@ export function Dashboard({ usuario, onLogout }: Props) {
         
         {vista === 'prestamo' && (
           <TablaPrestamos />
+        )}
+
+        {vista === 'reportes' && (
+          <Reportes />
         )}
 
         {vista === 'usuarios' && esDirector && (
